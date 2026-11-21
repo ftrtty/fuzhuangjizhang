@@ -1,0 +1,109 @@
+
+name: Android APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build 服装记工本 APK
+    runs-on: ubuntu-24.04
+
+    steps:
+      # 1. 获取源码
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # 2. 安装 Android / Python 原生编译依赖
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip \
+            openjdk-17-jdk \
+            python3-pip python3-venv \
+            autoconf automake autopoint m4 \
+            libtool libtool-bin libltdl-dev \
+            pkg-config libffi-dev libssl-dev \
+            zlib1g-dev libncurses-dev \
+            cmake gettext build-essential ccache
+
+      # 3. 确认 Java
+      - name: Check Java
+        run: |
+          java -version
+          javac -version
+
+      # 4. 设置 Python 3.12
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 5. 安装 Python 编译工具
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer
+          python -m pip install "cython==0.29.34"
+
+      # 6. 检查编译环境和中文字体
+      - name: Check Build Environment
+        run: |
+          buildozer --version
+          python --version
+          java -version
+          command -v libtoolize
+          autoreconf --version
+
+          echo "========== Check Chinese Font =========="
+          test -f fonts/NotoSansSC-Regular.otf
+          echo "Chinese font file exists"
+
+          echo "========== Check Buildozer Spec =========="
+          grep -E 'p4a.branch|p4a.commit|source.include_exts' buildozer.spec
+
+      # 7. 清理旧构建产物
+      - name: Clean previous build
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+          rm -f build.log
+
+      # 8. 编译 APK
+      - name: Build APK
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        run: |
+          set -o pipefail
+          export PATH="$JAVA_HOME/bin:$PATH"
+          buildozer -v android debug 2>&1 | tee build.log
+
+      # 9. 显示 APK 文件
+      - name: List APK
+        if: always()
+        run: |
+          echo "========== APK files =========="
+          find . -type f -name "*.apk" -print
+          echo "==============================="
+
+      # 10. 编译成功后上传 APK
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 服装记工本-APK
+          path: bin/*.apk
+          if-no-files-found: error
+
+      # 11. 无论成功或失败，都上传编译日志
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzhuangjigongben-build-log
+          path: build.log
+          if-no-files-found: warn
