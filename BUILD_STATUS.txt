@@ -1,0 +1,3 @@
+STATUS: SOURCE PACKAGE WITH GITHUB ACTIONS WORKFLOW
+This ZIP is not an APK and has not been compiled in this environment.
+The GitHub workflow must be run in the user's GitHub repository to verify the Android build.
